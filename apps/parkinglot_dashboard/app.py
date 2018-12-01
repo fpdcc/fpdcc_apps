@@ -8,6 +8,7 @@ import plotly
 from plotly import graph_objs as go
 from plotly.graph_objs import *
 import pandas as pd
+import numpy as np
 from sqlalchemy import create_engine
 import yaml
 
@@ -29,19 +30,34 @@ mapbox_access_token = 'pk.eyJ1IjoiZ2x3IiwiYSI6IjdHTVp3eWMifQ.TXIsy6c3KnbqnUAeBaw
 
 # gdf = gpd.GeoDataFrame.from_postgis(sql, con=engine, geom_col='geom' )
 
-df  = pd.read_csv('/home/garret/projects/fpdcc_apps/apps/parkinglot_dashboard/test_data/parkinglots_simplified_centroid_4326.csv')
+df  = pd.read_csv('/home/garret/projects/fpdcc_apps/apps/parkinglot_dashboard/test_data/parkinglots_simplified_centroid_4326_v2.csv')
 site_lat = list(df['lat'])
 site_lon = list(df['lon'])
-locations_name = list(df['lot'])
+locations_name = list(df['lot_id'])
+zones = df['zone'].unique()
+zones = np.append(zones, ['All'])
 
 external_stylesheet = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheet)
-app = dash.Dash()
+#app = dash.Dash()
 app.scripts.config.serve_locally=True
 
 app.layout = html.Div([
     html.H4('FPDCC Parking Lots'),
+    html.Div([
+        dcc.Dropdown(
+            id='yaxis',
+            options=[{'label': i.title(), 'value': i} for i in zones],
+            value='South'
+        )
+    ],style={'width': '48%', 'float': 'left', 'display':'inline-block'}),
+    html.Button(
+        id='submit-button',
+        n_clicks=0,
+        children='Submit',
+        style={'fontSize':24, 'display':'inline-block'}
+    ),
     html.Div([
         html.Div([
             dcc.Graph(
@@ -83,7 +99,9 @@ app.layout = html.Div([
 
     html.Div([
         dt.DataTable(
-            rows = df.to_dict('records'),
+            #rows = [],
+            rows = df[df['zone'] == 'South'].to_dict('records'),
+            #rows = df.to_dict('records'),
             columns = sorted(df.columns.difference(['geom'])),
             row_selectable = True,
             filterable = True,
@@ -95,6 +113,22 @@ app.layout = html.Div([
     html.Div(id = 'selected-indexes'),
 ], className = "container")
 
+# Dropdown and submit button callback to DataTable
+@app.callback(
+    Output('datatable-lots', 'rows'),
+    [Input('submit-button', 'n_clicks')],
+    [State('yaxis', 'value')])
+def zone_parkinglots(submitbutton, value):
+
+    if value == 'All':
+        rows = df.to_dict('records')
+    else:
+        dff = df[df['zone'] == value]
+        rows = dff.to_dict('records')
+    return rows
+
+
+#
 @app.callback(
     Output('datatable-lots', 'selected_row_indices'),
     [Input('graph-lots', 'clickData')],
@@ -108,7 +142,7 @@ def update_selected_row_indices(clickData, selected_row_indices):
                 selected_row_indices.append(point['pointNumber'])
     return selected_row_indices
 
-
+# Update bar graph based on DataTable
 @app.callback(
     Output('graph-lots', 'figure'),
     [Input('datatable-lots', 'rows'),
@@ -116,7 +150,7 @@ def update_selected_row_indices(clickData, selected_row_indices):
 def update_figure(rows, selected_row_indices):
     dff = pd.DataFrame(rows)
     data = [go.Bar(
-            x = dff['lot'],
+            x = dff['lot_id'],
             y = dff['sqft'],
             width = 1,
             name = 'Lot Square Feet'
