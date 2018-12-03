@@ -37,11 +37,61 @@ locations_name = list(df['lot_id'])
 zones = df['zone'].unique()
 zones = np.append(zones, ['All'])
 
-external_stylesheet = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+#external_stylesheet = ['https://codepen.io/glw/pen/Mzxpax.css']
 
-app = dash.Dash(__name__, external_stylesheets=external_stylesheet)
-#app = dash.Dash()
+#app = dash.Dash(__name__, external_stylesheets=external_stylesheet)
+app = dash.Dash()
 app.scripts.config.serve_locally=True
+
+layout = dict(
+    autosize=True,
+    height=800,
+    font=dict(color='#fffcfc'),
+    titlefont=dict(color='#fffcfc', size='14'),
+    margin=dict(
+        l=35,
+        r=35,
+        b=35,
+        t=45
+    ),
+    hovermode="closest",
+    plot_bgcolor="#191A1A",
+    paper_bgcolor="#020202",
+    legend=dict(font=dict(size=10), orientation='h'),
+    title='Parking Lots',
+    mapbox = dict(
+        accesstoken = mapbox_access_token,
+        center = dict(
+            lat = 41.808611,
+            lon = -87.888889
+        ),
+        zoom = 9,
+        style = 'light'
+    )
+)
+
+def gen_map(map_data):
+    # groupby returns a dictionary mapping the values of the first field
+    # 'classification' onto a list of record dictionaries with that
+    # classification value.
+    return {
+        "data": [
+                {
+                    "type": "scattermapbox",
+                    "lat": list(map_data['lat']),
+                    "lon": list(map_data['lon']),
+                    "text": list(map_data['lot']),
+                    "mode": "markers",
+                    "name": list(map_data['sqft']),
+                    "marker": {
+                        "size": 4,
+                        "opacity": 0.8,
+                        "color": '#265465'
+                    }
+                }
+            ],
+        "layout": layout
+    }
 
 app.layout = html.Div([
     html.H4('FPDCC Parking Lots'),
@@ -56,47 +106,41 @@ app.layout = html.Div([
         id='submit-button',
         n_clicks=0,
         children='Submit',
-        style={'fontSize':24, 'display':'inline-block'}
+        style={'fontSize':20, 'display':'inline-block'}
     ),
     html.Div([
-        html.Div([
-            dcc.Graph(
-            	id = 'map',
-            	figure = dict(
-            		data = [dict(
-            			type = 'scattermapbox',
-                        lat = site_lat,
-            		    lon = site_lon,
-                        mode = 'markers'
-                        )],
-            		layout = dict(
-                        hovermode = "closest",
-            			height = 800,
-            			autosize = True,
-            			mapbox = dict(
-            				layers = [dict(
-            					type = 'point',
-            					color = '#265465'
-            				)],
-            				accesstoken = mapbox_access_token,
-            				center = dict(
-            		            lat = 41.808611,
-            		            lon = -87.888889
-            		        ),
-            		        zoom = 9,
-            		        style = 'light'
-            			)
-            		)
-            	)
-            )
-        ], className = 'six columns'),
+        dcc.Graph(
+        	id = 'map',
+        	figure = dict(
+        		data = [dict(
+        			type = 'scattermapbox',
+                    text = list(df[df['zone']=='South']['lot_id']),
+                    lat = df[df['zone']=='South']['lat'],
+        		    lon = df[df['zone']=='South']['lon'],
+                    mode = 'markers'
+                    )],
+        		layout = dict(
+                    hovermode = "closest",
+        			height = 800,
+        			autosize = True,
+        			mapbox = dict(
+        				accesstoken = mapbox_access_token,
+        				center = dict(
+        		            lat = 41.808611,
+        		            lon = -87.888889
+        		        ),
+        		        zoom = 9,
+        		        style = 'light'
+        			)
+        		)
+        	)
+        )
+    ], className = 'twelve columns'),
         html.Div([
             dcc.Graph(
                 id = 'graph-lots'
             )
-    ], className = 'six columns')
-    ], className = 'row'),
-
+    ], className = 'twelve columns'),
     html.Div([
         dt.DataTable(
             #rows = [],
@@ -119,7 +163,6 @@ app.layout = html.Div([
     [Input('submit-button', 'n_clicks')],
     [State('yaxis', 'value')])
 def zone_parkinglots(submitbutton, value):
-
     if value == 'All':
         rows = df.to_dict('records')
     else:
@@ -160,9 +203,9 @@ def update_figure(rows, selected_row_indices):
     return fig
 
 
-#app.css.append_css({
-#    'external_url': 'https://codepen.io/chriddyp/pen/bWLwgP.css'
-#})
+app.css.append_css({
+    'external_url': 'https://codepen.io/glw/pen/Mzxpax.css'
+})
 
 
 if __name__ == '__main__':
