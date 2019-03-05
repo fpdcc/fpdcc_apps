@@ -36,27 +36,34 @@ app.scripts.config.serve_locally=True
 
 # gdf = gpd.GeoDataFrame.from_postgis(sql, con=engine, geom_col='geom' )
 
-df  = pd.read_csv('/home/garret/projects/fpdcc_apps/apps/parkinglot_dashboard/test_data/parkinglots_simplified_centroid_4326_v2.csv')
+df  = pd.read_csv('/media/sf_garretwais/projects/fpdcc_apps/apps/parkinglot_dashboard/test_data/parkinglots_simplified_centroid_4326_v2.csv')
 
 # Values for dropdown
 zones = df['zone'].unique()
 zones = np.append(zones, ['All'])
 
-layout = {
-    'title':'Parking Lots',
-    'autosize':True,
-    'height':'800',
-    'hovermode':'closest',
-    'mapbox':{
-        'accesstoken': mapbox_access_token,
-        'center': {
-            'lat': 41.808611,
-            'lon' : -87.888889
-        },
-        'zoom' : 9,
-        'style' : 'light'
-    }
-}
+layout = dict(
+    autosize=True,
+    height=800,
+    margin=dict(
+        l=35,
+        r=35,
+        b=35,
+        t=45
+    ),
+    hovermode="closest",
+    legend=dict(font=dict(size=10), orientation='h'),
+    title='Parking Lots',
+    mapbox = dict(
+        accesstoken = mapbox_access_token,
+        center = dict(
+            lat = 41.808611,
+            lon = -87.888889
+        ),
+        zoom = 9,
+        style = 'light'
+    )
+)
 
 def gen_map(df):
     return {
@@ -99,6 +106,7 @@ app.layout = html.Div([
         	figure = gen_map(df)
         )
     ]),
+
 
         html.Div([
             dcc.Graph(id = 'graph-lots')
