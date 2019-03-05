@@ -14,6 +14,12 @@ import yaml
 
 mapbox_access_token = 'pk.eyJ1IjoiZ2x3IiwiYSI6IjdHTVp3eWMifQ.TXIsy6c3KnbqnUAeBawVsA'
 
+#external_stylesheet = ['https://codepen.io/glw/pen/Mzxpax.css']
+
+#app = dash.Dash(__name__, external_stylesheets=external_stylesheet)
+app = dash.Dash()
+app.scripts.config.serve_locally=True
+
 #############
 # ENV SETUP #
 #############
@@ -31,60 +37,39 @@ mapbox_access_token = 'pk.eyJ1IjoiZ2x3IiwiYSI6IjdHTVp3eWMifQ.TXIsy6c3KnbqnUAeBaw
 # gdf = gpd.GeoDataFrame.from_postgis(sql, con=engine, geom_col='geom' )
 
 df  = pd.read_csv('/home/garret/projects/fpdcc_apps/apps/parkinglot_dashboard/test_data/parkinglots_simplified_centroid_4326_v2.csv')
-site_lat = list(df['lat'])
-site_lon = list(df['lon'])
-locations_name = list(df['lot_id'])
+
+# Values for dropdown
 zones = df['zone'].unique()
 zones = np.append(zones, ['All'])
 
-#external_stylesheet = ['https://codepen.io/glw/pen/Mzxpax.css']
+layout = {
+    'title':'Parking Lots',
+    'autosize':True,
+    'height':'800',
+    'hovermode':'closest',
+    'mapbox':{
+        'accesstoken': mapbox_access_token,
+        'center': {
+            'lat': 41.808611,
+            'lon' : -87.888889
+        },
+        'zoom' : 9,
+        'style' : 'light'
+    }
+}
 
-#app = dash.Dash(__name__, external_stylesheets=external_stylesheet)
-app = dash.Dash()
-app.scripts.config.serve_locally=True
-
-layout = dict(
-    autosize=True,
-    height=800,
-    font=dict(color='#fffcfc'),
-    titlefont=dict(color='#fffcfc', size='14'),
-    margin=dict(
-        l=35,
-        r=35,
-        b=35,
-        t=45
-    ),
-    hovermode="closest",
-    plot_bgcolor="#191A1A",
-    paper_bgcolor="#020202",
-    legend=dict(font=dict(size=10), orientation='h'),
-    title='Parking Lots',
-    mapbox = dict(
-        accesstoken = mapbox_access_token,
-        center = dict(
-            lat = 41.808611,
-            lon = -87.888889
-        ),
-        zoom = 9,
-        style = 'light'
-    )
-)
-
-def gen_map(map_data):
-    # groupby returns a dictionary mapping the values of the first field
-    # 'classification' onto a list of record dictionaries with that
-    # classification value.
+def gen_map(df):
     return {
         "data": [
                 {
                     "type": "scattermapbox",
-                    "lat": list(map_data['lat']),
-                    "lon": list(map_data['lon']),
-                    "text": list(map_data['lot']),
+                    "text": list(df['lot_id']),
+                    "lat": df['lat'],
+        		    "lon": df['lon'],
                     "mode": "markers",
-                    "name": list(map_data['sqft']),
+                    "name": list(df['sqft']),
                     "marker": {
-                        "size": 4,
+                        "size": 8,
                         "opacity": 0.8,
                         "color": '#265465'
                     }
@@ -94,68 +79,46 @@ def gen_map(map_data):
     }
 
 app.layout = html.Div([
-    html.H4('FPDCC Parking Lots'),
+    html.H4('FPDCC \Parking Lots'),
     html.Div([
         dcc.Dropdown(
             id='yaxis',
             options=[{'label': i.title(), 'value': i} for i in zones],
-            value='South'
+            value='All'
         )
-    ],style={'width': '48%', 'float': 'left', 'display':'inline-block'}),
+    ],style={'width': '48%', 'float': 'left', 'display':'inline-block', 'padding-bottom': '5px'}),
     html.Button(
         id='submit-button',
         n_clicks=0,
         children='Submit',
-        style={'fontSize':20, 'display':'inline-block'}
+        style={'fontSize':18, 'display':'inline-block'}
     ),
     html.Div([
         dcc.Graph(
         	id = 'map',
-        	figure = dict(
-        		data = [dict(
-        			type = 'scattermapbox',
-                    text = list(df[df['zone']=='South']['lot_id']),
-                    lat = df[df['zone']=='South']['lat'],
-        		    lon = df[df['zone']=='South']['lon'],
-                    mode = 'markers'
-                    )],
-        		layout = dict(
-                    hovermode = "closest",
-        			height = 800,
-        			autosize = True,
-        			mapbox = dict(
-        				accesstoken = mapbox_access_token,
-        				center = dict(
-        		            lat = 41.808611,
-        		            lon = -87.888889
-        		        ),
-        		        zoom = 9,
-        		        style = 'light'
-        			)
-        		)
-        	)
+        	figure = gen_map(df)
         )
-    ], className = 'twelve columns'),
+    ]),
+
         html.Div([
-            dcc.Graph(
-                id = 'graph-lots'
-            )
-    ], className = 'twelve columns'),
+            dcc.Graph(id = 'graph-lots')
+    ], style={'margin': 0, 'height': 900, 'height': '33%'}),
+
     html.Div([
         dt.DataTable(
-            #rows = [],
-            rows = df[df['zone'] == 'South'].to_dict('records'),
-            #rows = df.to_dict('records'),
+            id = 'datatable-lots',
+            rows = df.to_dict('records'),
             columns = sorted(df.columns.difference(['geom'])),
             row_selectable = True,
             filterable = True,
             sortable = True,
-            selected_row_indices = [],
-            id = 'datatable-lots'
+            selected_row_indices = []
         )
-    ]),
+    ], style={'margin': 0, 'width':'100%', 'height': '33%', 'verticalAlign':'top'}),
+
     html.Div(id = 'selected-indexes'),
-], className = "container")
+
+],style={'width': '90%','height': '90%'})
 
 # Dropdown and submit button callback to DataTable
 @app.callback(
@@ -168,8 +131,21 @@ def zone_parkinglots(submitbutton, value):
     else:
         dff = df[df['zone'] == value]
         rows = dff.to_dict('records')
+        print(type(rows))
+        print(rows)
     return rows
 
+# draw map on new dropdown selection
+@app.callback(
+    Output('map', 'figure'),
+    [Input('submit-button', 'n_clicks')],
+    [State('yaxis', 'value')])
+def map_update(submitbutton, value):
+    if value == 'All':
+        dff = df
+    else:
+        dff = df[df['zone'] == value]
+    return gen_map(dff)
 
 #
 @app.callback(
@@ -195,7 +171,7 @@ def update_figure(rows, selected_row_indices):
     data = [go.Bar(
             x = dff['lot_id'],
             y = dff['sqft'],
-            width = 1,
+            width = 3,
             name = 'Lot Square Feet'
             )
         ]
@@ -203,9 +179,9 @@ def update_figure(rows, selected_row_indices):
     return fig
 
 
-app.css.append_css({
-    'external_url': 'https://codepen.io/glw/pen/Mzxpax.css'
-})
+#app.css.append_css({
+#    'external_url': 'https://codepen.io/glw/pen/Mzxpax.css'
+#})
 
 
 if __name__ == '__main__':
